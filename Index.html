@@ -1,0 +1,687 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>GRC 360 degree — Live Risk & Compliance Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" />
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg: #0b1020;
+    --surface: #12172a;
+    --muted: #7c86a2;
+    --card: #161c34;
+    --text: #e7eaf6;
+    --brand: #6c8cff;
+    --brand-2: #30e0a1;
+    --accent: #ff6b6b;
+    --warn: #f3b34c;
+    --ok: #35c97a;
+    --ring: rgba(108,140,255,.35);
+    --founder-1: #8AD0FF; /* Parveez */
+    --founder-2: #FFD36B; /* Nikunj */
+  }
+  *{box-sizing: border-box}
+  html,body{height:100%}
+  body{
+    margin:0; font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+    background: radial-gradient(1200px 600px at 80% -10%, rgba(108,140,255,.18), transparent 60%),
+                radial-gradient(900px 500px at 10% 110%, rgba(48,224,161,.16), transparent 60%),
+                var(--bg);
+    color:var(--text);
+  }
+  /* Top bar */
+  .topbar{
+    position:sticky; top:0; z-index:20;
+    backdrop-filter: blur(10px);
+    background: linear-gradient(180deg, rgba(10,15,35,.85), rgba(10,15,35,.55));
+    border-bottom:1px solid rgba(255,255,255,.08);
+  }
+  .topbar-inner{
+    display:flex; align-items:center; justify-content:space-between; gap:16px;
+    padding:14px 22px; max-width:1400px; margin:0 auto;
+  }
+  .brand{display:flex; align-items:center; gap:14px; font-weight:800; letter-spacing:.3px;}
+  .brand-badge{
+    width:36px; height:36px; border-radius:12px;
+    background: conic-gradient(from 200deg, var(--brand), var(--brand-2), var(--brand));
+    box-shadow: 0 0 0 6px var(--ring), 0 8px 30px rgba(0,0,0,.35);
+  }
+  .brand-name{font-size:18px}
+  .tagline{font-size:12px; color:var(--muted)}
+  .actions{display:flex; gap:10px; align-items:center}
+  .btn{
+    border:1px solid rgba(255,255,255,.1);
+    background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+    color:var(--text); padding:10px 14px; border-radius:12px; cursor:pointer; font-weight:600;
+    transition:.25s transform, .25s box-shadow, .25s border-color;
+  }
+  .btn:hover{transform: translateY(-1px); border-color:rgba(255,255,255,.2); box-shadow:0 8px 20px rgba(0,0,0,.3)}
+  .btn-primary{background: linear-gradient(180deg, #6c8cff, #4d6fff); border-color: rgba(108,140,255,.6)}
+  .btn-ghost{background: transparent}
+
+  /* Founders rotating ring */
+  .founders{
+    position: relative;
+    width:84px; height:84px; flex:0 0 auto;
+    display:grid; place-items:center;
+  }
+  .founders-center{
+    position:absolute; inset:8px; display:grid; place-items:center;
+    font-size:12px; font-weight:800; letter-spacing:.4px;
+    background: radial-gradient(circle at 50% 50%, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:50%;
+  }
+  .founders-ring{
+    width:100%; height:100%;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,.3));
+    animation: spin 18s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .founders text{
+    font-size:13.5px; font-weight:800; letter-spacing:.3px;
+  }
+  .founders .p{ fill: var(--founder-1); }
+  .founders .n{ fill: var(--founder-2); }
+  .founders .sep{ fill:#cfd6ff; }
+
+  /* Layout */
+  .wrap{max-width:1400px; margin:24px auto; padding:0 22px}
+  .grid{display:grid; gap:16px; grid-template-columns: repeat(12, 1fr)}
+  .card{
+    background: linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:18px; padding:16px;
+    box-shadow: 0 6px 24px rgba(0,0,0,.25);
+  }
+  .card-header{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px;}
+  .card-title{font-weight:700; letter-spacing:.2px}
+  .muted{color:var(--muted); font-size:12px}
+
+  /* KPI tiles */
+  .kpis{grid-column: span 12; display:grid; gap:16px; grid-template-columns: repeat(4, 1fr)}
+  .kpi{position:relative; overflow:hidden; background: linear-gradient(180deg, rgba(108,140,255,.12), rgba(108,140,255,.04));}
+  .kpi::after{content:""; position:absolute; right:-30px; top:-30px; width:140px; height:140px; border-radius:50%;
+    background: radial-gradient(circle at 30% 30%, rgba(108,140,255,.45), transparent 60%); filter: blur(6px);}
+  .kpi .value{font-size:28px; font-weight:800}
+  .kpi .sub{font-size:12px; color:var(--muted)}
+  .kpi .trend{font-size:12px; font-weight:700}
+  .trend.up{color:var(--ok)} .trend.down{color:var(--accent)}
+
+  /* Gauge */
+  .gauge-wrap{grid-column: span 4}
+  .gauge{
+    aspect-ratio:1/1; border-radius:20px; display:grid; place-items:center; position:relative;
+    background:
+      radial-gradient(closest-side, #0f1530 64%, transparent 65% 66%, #0f1530 67%),
+      conic-gradient(var(--accent) var(--v), rgba(255,255,255,.07) 0);
+    box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), 0 10px 30px rgba(0,0,0,.35);
+  }
+  .gauge .dial{
+    position:absolute; width:8px; height:38%;
+    background: linear-gradient(180deg, #fff, #c6d3ff);
+    top:12%; left:50%; transform-origin:50% 100%; border-radius:6px;
+    box-shadow: 0 6px 14px rgba(108,140,255,.6);
+  }
+  .gauge .center{width:90px; height:90px; border-radius:50%; display:grid; place-items:center;
+    background: linear-gradient(180deg, #1a2142, #101631); border:1px solid rgba(255,255,255,.08)}
+  .gauge .center .score{font-size:28px; font-weight:800}
+  .legend{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px}
+  .pill{padding:6px 10px; border-radius:999px; font-size:12px; border:1px solid rgba(255,255,255,.12)}
+  .pill.ok{background:rgba(53,201,122,.1); border-color:rgba(53,201,122,.4)}
+  .pill.warn{background:rgba(243,179,76,.1); border-color:rgba(243,179,76,.4)}
+  .pill.crit{background:rgba(255,107,107,.12); border-color:rgba(255,107,107,.4)}
+
+  /* Charts & panels */
+  .span-4{grid-column: span 4}
+  .span-6{grid-column: span 6}
+  .span-8{grid-column: span 8}
+  .span-12{grid-column: span 12}
+
+  /* Heatmap */
+  .heatmap{display:grid; grid-template-columns: 120px repeat(5, 1fr); gap:6px; margin-top:6px;}
+  .heatmap .h-cell{border-radius:10px; padding:10px; text-align:center; font-weight:700; cursor:pointer;
+    border:1px solid rgba(255,255,255,.08); transition:.2s transform, .2s box-shadow;}
+  .heatmap .h-cell:hover{transform: translateY(-2px); box-shadow:0 8px 18px rgba(0,0,0,.25)}
+  .lvl-1{background: rgba(53,201,122,.12)}
+  .lvl-2{background: rgba(243,179,76,.14)}
+  .lvl-3{background: rgba(255,107,107,.16)}
+
+  /* Table */
+  table{width:100%; border-collapse: collapse; font-size:14px}
+  th, td{padding:10px 8px; border-bottom:1px dashed rgba(255,255,255,.08); text-align:left}
+  th{color:var(--muted); font-weight:600}
+
+  /* Footer */
+  .foot{margin:24px 0 40px; text-align:center; color:var(--muted); font-size:12px}
+
+  /* Responsive */
+  @media (max-width: 1100px){
+    .kpis{grid-template-columns: repeat(2, 1fr)}
+    .gauge-wrap{grid-column: span 12}
+    .span-8, .span-6, .span-4{grid-column: span 12}
+  }
+</style>
+</head>
+<body>
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-badge"></div>
+        <div>
+          <div class="brand-name">GRC 360 degree</div>
+          <div class="tagline">Real-time Risk • Compliance • Financial Impact</div>
+        </div>
+
+        <!-- Founders rotating ring -->
+        <div class="founders" title="Founders">
+          <div class="founders-center">Founders</div>
+          <svg class="founders-ring" viewBox="0 0 120 120" aria-hidden="true">
+            <defs>
+              <path id="textcircle" d="M60,10 a50,50 0 1,1 0,100 a50,50 0 1,1 0,-100"></path>
+            </defs>
+            <!-- Alternate colored names around the ring -->
+            <text>
+              <textPath href="#textcircle" startOffset="0%">
+                <tspan class="sep">•</tspan> <tspan class="p">Parveez</tspan> <tspan class="sep">•</tspan>
+                <tspan class="n">Nikunj</tspan> <tspan class="sep">•</tspan>
+                <tspan class="p">Parveez</tspan> <tspan class="sep">•</tspan>
+                <tspan class="n">Nikunj</tspan> <tspan class="sep">•</tspan>
+                <tspan class="p">Parveez</tspan> <tspan class="sep">•</tspan>
+                <tspan class="n">Nikunj</tspan> <tspan class="sep">•</tspan>
+              </textPath>
+            </text>
+          </svg>
+        </div>
+        <!-- /Founders rotating ring -->
+
+      </div>
+      <div class="actions">
+        <button class="btn btn-ghost" id="toggleTheme">Toggle Dark/Light</button>
+        <button class="btn" id="simulateBtn">Simulate Scan</button>
+        <button class="btn btn-primary" id="exportBtn">Export Snapshot</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <!-- KPIs -->
+    <div class="grid kpis">
+      <div class="card kpi">
+        <div class="card-header">
+          <div class="card-title">Overall Risk Score</div>
+          <div class="muted">weighted across domains</div>
+        </div>
+        <div class="value" id="kpiScore">62</div>
+        <div class="sub">Target &lt; 45 • Last scan <span id="lastScan">—</span></div>
+        <div class="trend up" id="kpiTrend">+3.2% vs prev</div>
+      </div>
+      <div class="card kpi">
+        <div class="card-header">
+          <div class="card-title">Open Risks</div>
+          <div class="muted">by severity</div>
+        </div>
+        <div class="value"><span id="kpiOpen">87</span></div>
+        <div class="sub">Hi: <b id="kpiHigh">12</b> • Med: <b id="kpiMed">39</b> • Low: <b id="kpiLow">36</b></div>
+      </div>
+      <div class="card kpi">
+        <div class="card-header">
+          <div class="card-title">Projected Financial Exposure</div>
+          <div class="muted">12-mo Monte-Carlo (mock)</div>
+        </div>
+        <div class="value">$ <span id="kpiLoss">1.18</span>M</div>
+        <div class="trend down" id="kpiLossDelta">−4.1% vs prev</div>
+      </div>
+      <div class="card kpi">
+        <div class="card-header">
+          <div class="card-title">Compliance Coverage</div>
+          <div class="muted">ISO 27001 • NIST CSF</div>
+        </div>
+        <div class="value"><span id="kpiComp">78</span>%</div>
+        <div class="sub">Control tests passed this quarter</div>
+      </div>
+    </div>
+
+    <!-- Gauge + Donut + Bar -->
+    <div class="grid" style="margin-top:16px">
+      <div class="card gauge-wrap">
+        <div class="card-header">
+          <div class="card-title">Risk Gauge</div>
+          <div class="muted">Critical ↑ • Safe ↓</div>
+        </div>
+        <div class="gauge" id="gauge" style="--v: 220deg">
+          <div class="dial" id="dial" style="transform: translateX(-50%) rotate(220deg)"></div>
+          <div class="center">
+            <div class="score" id="gaugeScore">62</div>
+            <div class="muted">Current</div>
+          </div>
+        </div>
+        <div class="legend">
+          <span class="pill ok">Low &lt; 40</span>
+          <span class="pill warn">Medium 40–70</span>
+          <span class="pill crit">High &gt; 70</span>
+        </div>
+      </div>
+
+      <div class="card span-4">
+        <div class="card-header">
+          <div class="card-title">Severity Mix</div>
+          <div class="muted">% of total open risks</div>
+        </div>
+        <canvas id="donut"></canvas>
+      </div>
+
+      <div class="card span-4">
+        <div class="card-header">
+          <div class="card-title">Top Domains by Exposure ($)</div>
+          <div class="muted">est. single-loss exposure</div>
+        </div>
+        <canvas id="bar"></canvas>
+      </div>
+    </div>
+
+    <!-- Additional pie charts -->
+    <div class="grid" style="margin-top:16px">
+      <div class="card span-6">
+        <div class="card-header">
+          <div class="card-title">Incident Root Cause Split</div>
+          <div class="muted">last 12 months (mock)</div>
+        </div>
+        <canvas id="pie1"></canvas>
+      </div>
+      <div class="card span-6">
+        <div class="card-header">
+          <div class="card-title">Control Test Outcomes</div>
+          <div class="muted">pass vs fail vs partial</div>
+        </div>
+        <canvas id="pie2"></canvas>
+      </div>
+    </div>
+
+    <!-- Radar + Heatmap -->
+    <div class="grid" style="margin-top:16px">
+      <div class="card span-6">
+        <div class="card-header">
+          <div class="card-title">Framework Readiness (0-100)</div>
+          <div class="muted">NIST CSF vs ISO 27001 (sample)</div>
+        </div>
+        <canvas id="radar"></canvas>
+      </div>
+
+      <div class="card span-6">
+        <div class="card-header">
+          <div class="card-title">Risk Heatmap</div>
+          <div class="muted">Likelihood × Impact • click a cell</div>
+        </div>
+        <div class="heatmap">
+          <div class="h-cell" style="background:transparent;border:none;text-align:left;color:var(--muted)">Impact →<br/>Likelihood ↓</div>
+          <div class="h-cell lvl-1" data-cell="L1-I1">1</div>
+          <div class="h-cell lvl-1" data-cell="L1-I2">2</div>
+          <div class="h-cell lvl-2" data-cell="L1-I3">3</div>
+          <div class="h-cell lvl-2" data-cell="L1-I4">4</div>
+          <div class="h-cell lvl-3" data-cell="L1-I5">5</div>
+
+          <div class="h-cell lvl-1" style="text-align:left;color:var(--muted)">2</div>
+          <div class="h-cell lvl-1" data-cell="L2-I1">1</div>
+          <div class="h-cell lvl-2" data-cell="L2-I2">2</div>
+          <div class="h-cell lvl-2" data-cell="L2-I3">3</div>
+          <div class="h-cell lvl-3" data-cell="L2-I4">4</div>
+          <div class="h-cell lvl-3" data-cell="L2-I5">5</div>
+
+          <div class="h-cell lvl-1" style="text-align:left;color:var(--muted)">3</div>
+          <div class="h-cell lvl-2" data-cell="L3-I1">1</div>
+          <div class="h-cell lvl-2" data-cell="L3-I2">2</div>
+          <div class="h-cell lvl-3" data-cell="L3-I3">3</div>
+          <div class="h-cell lvl-3" data-cell="L3-I4">4</div>
+          <div class="h-cell lvl-3" data-cell="L3-I5">5</div>
+
+          <div class="h-cell lvl-2" style="text-align:left;color:var(--muted)">4</div>
+          <div class="h-cell lvl-2" data-cell="L4-I1">1</div>
+          <div class="h-cell lvl-3" data-cell="L4-I2">2</div>
+          <div class="h-cell lvl-3" data-cell="L4-I3">3</div>
+          <div class="h-cell lvl-3" data-cell="L4-I4">4</div>
+          <div class="h-cell lvl-3" data-cell="L4-I5">5</div>
+
+          <div class="h-cell lvl-2" style="text-align:left;color:var(--muted)">5</div>
+          <div class="h-cell lvl-3" data-cell="L5-I1">1</div>
+          <div class="h-cell lvl-3" data-cell="L5-I2">2</div>
+          <div class="h-cell lvl-3" data-cell="L5-I3">3</div>
+          <div class="h-cell lvl-3" data-cell="L5-I4">4</div>
+          <div class="h-cell lvl-3" data-cell="L5-I5">5</div>
+        </div>
+        <div class="muted" id="heatmapInfo" style="margin-top:10px">Tip: Click any cell to preview sample risks.</div>
+      </div>
+    </div>
+
+    <!-- Domain table -->
+    <div class="card span-12" style="margin-top:16px">
+      <div class="card-header">
+        <div class="card-title">Domain-wise Risk & Financial Quantification</div>
+        <div class="muted">sample data for PoC</div>
+      </div>
+      <table id="domainTable">
+        <thead>
+          <tr>
+            <th>Domain</th>
+            <th>Severity</th>
+            <th>Open Risks</th>
+            <th>ALE (Annualized Loss Expectancy)</th>
+            <th>Suggested Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Access Management</td><td>High</td><td>12</td><td>$ 320,000</td><td>MFA gaps & joiner/mover/leaver cleanup</td>
+          </tr>
+          <tr>
+            <td>Data Protection</td><td>Medium</td><td>18</td><td>$ 410,000</td><td>DLP tuning & encryption at rest review</td>
+          </tr>
+          <tr>
+            <td>Network Security</td><td>Medium</td><td>21</td><td>$ 260,000</td><td>Segmentation & EDR policy uplift</td>
+          </tr>
+          <tr>
+            <td>Supplier Risk</td><td>High</td><td>9</td><td>$ 520,000</td><td>SLA controls & evidence cadence</td>
+          </tr>
+          <tr>
+            <td>Ops Security</td><td>Low</td><td>27</td><td>$ 110,000</td><td>Patch backlog burn-down</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="foot">© 2025 • GRC 360 degree • Prototype dashboard for demos</div>
+  </div>
+
+<script>
+  // ---------- Helpers ----------
+  const $ = (s)=>document.querySelector(s);
+  const rnd = (min,max)=>Math.round(min + Math.random()*(max-min));
+  const clamp = (v,min,max)=>Math.max(min, Math.min(max, v));
+
+  // ---------- KPI Animation ----------
+  function updateKPIs(){
+    const score = rnd(48,76);
+    const open = rnd(70,120);
+    const hi = rnd(8,20), med = rnd(30,50), low = Math.max(0, open - hi - med);
+    const loss = (Math.random()*1.6 + 0.6).toFixed(2);
+    const comp = rnd(68,90);
+    const delta = (Math.random()*6 - 3).toFixed(1);
+
+    $("#kpiScore").textContent = score;
+    $("#gaugeScore").textContent = score;
+    $("#kpiOpen").textContent = open;
+    $("#kpiHigh").textContent = hi;
+    $("#kpiMed").textContent = med;
+    $("#kpiLow").textContent = low;
+    $("#kpiLoss").textContent = loss;
+    $("#kpiComp").textContent = comp;
+    $("#kpiTrend").textContent = (delta>=0?"+":"") + delta + "% vs prev";
+    $("#kpiTrend").className = "trend " + (delta>=0? "up":"down");
+    $("#kpiLossDelta").textContent = (delta>=0?"+":"") + (-delta).toFixed(1) + "% vs prev";
+    $("#kpiLossDelta").className = "trend " + (delta>=0? "up":"down");
+
+    // Gauge needle (map 0–100 -> 140deg–360deg)
+    const deg = 140 + (score/100)*220;
+    $("#gauge").style.setProperty("--v", `${deg}deg`);
+    $("#dial").style.transform = `translateX(-50%) rotate(${deg}deg)`;
+
+    // Update charts instantly for a "live" feel
+    donut.data.datasets[0].data = [low, med, hi];
+    donut.update();
+
+    bar.data.datasets[0].data = [
+      rnd(220,420), // Access Mgmt
+      rnd(300,560), // Data Protection
+      rnd(180,360), // Network
+      rnd(380,640), // Supplier
+      rnd(100,240)  // Ops Sec
+    ];
+    bar.update();
+
+    radar.data.datasets[0].data = [rnd(60,85), rnd(55,80), rnd(65,90), rnd(50,78), rnd(60,88)];
+    radar.data.datasets[1].data = [rnd(58,82), rnd(52,78), rnd(60,86), rnd(48,75), rnd(58,85)];
+    radar.update();
+
+    // Pies dynamic
+    pie1.data.datasets[0].data = [rnd(22,38), rnd(18,30), rnd(12,26), rnd(8,18)];
+    pie1.update();
+    const pass = rnd(65,88), partial = rnd(5,18); const fail = clamp(100 - pass - partial, 5, 30);
+    pie2.data.datasets[0].data = [pass, fail, partial];
+    pie2.update();
+
+    $("#lastScan").textContent = new Date().toLocaleString();
+  }
+
+  // ---------- Charts ----------
+  Chart.defaults.font.family = 'Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif';
+
+  const donut = new Chart($("#donut"), {
+    type:'doughnut',
+    data:{
+      labels:['Low','Medium','High'],
+      datasets:[{
+        data:[36,39,12],
+        backgroundColor:['rgba(53,201,122,.8)','rgba(243,179,76,.85)','rgba(255,107,107,.9)'],
+        borderColor:['rgba(53,201,122,1)','rgba(243,179,76,1)','rgba(255,107,107,1)'],
+        borderWidth:1
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{ legend:{position:'bottom', labels:{boxWidth:12}} },
+      animation:{ animateRotate:true, animateScale:true },
+      cutout:'62%'
+    }
+  });
+
+  const bar = new Chart($("#bar"), {
+    type:'bar',
+    data:{
+      labels:['Access Mgmt','Data Protection','Network','Supplier','Ops Sec'],
+      datasets:[{
+        label:'Exposure ($k)',
+        data:[320,410,260,520,110],
+        backgroundColor:'rgba(108,140,255,.75)',
+        borderColor:'rgba(108,140,255,1)',
+        borderWidth:1,
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{display:false}},
+      scales:{
+        y:{beginAtZero:true, ticks:{callback:(v)=>"$"+v+"k"}, grid:{color:'rgba(255,255,255,.06)'}},
+        x:{grid:{display:false}}
+      },
+      animation:{duration:700}
+    }
+  });
+
+  const radar = new Chart($("#radar"), {
+    type:'radar',
+    data:{
+      labels:['Identify','Protect','Detect','Respond','Recover'],
+      datasets:[
+        {
+          label:'NIST Readiness',
+          data:[72,68,78,61,74],
+          backgroundColor:'rgba(108,140,255,.25)',
+          borderColor:'rgba(108,140,255,.9)',
+          pointBackgroundColor:'rgba(108,140,255,1)',
+          pointRadius:2
+        },
+        {
+          label:'ISO Alignment',
+          data:[70,65,73,58,71],
+          backgroundColor:'rgba(48,224,161,.22)',
+          borderColor:'rgba(48,224,161,.9)',
+          pointBackgroundColor:'rgba(48,224,161,1)',
+          pointRadius:2
+        }
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{position:'bottom'}},
+      scales:{
+        r:{
+          angleLines:{display:false},
+          grid:{color:'rgba(255,255,255,.06)'},
+          suggestedMin:40, suggestedMax:95,
+          pointLabels:{color:'#e7eaf6'}
+        }
+      },
+      animation:{duration:900}
+    }
+  });
+
+  // Pie charts with visible colors
+  const pie1 = new Chart($("#pie1"), {
+    type:'pie',
+    data:{
+      labels:['Config Errors','Phishing','Unpatched Vulns','3rd-Party'],
+      datasets:[{
+        data:[32,24,18,14],
+        backgroundColor:[
+          'rgba(108,140,255,.9)',
+          'rgba(48,224,161,.9)',
+          'rgba(243,179,76,.95)',
+          'rgba(255,107,107,.95)'
+        ],
+        borderColor:[
+          'rgba(108,140,255,1)',
+          'rgba(48,224,161,1)',
+          'rgba(243,179,76,1)',
+          'rgba(255,107,107,1)'
+        ],
+        borderWidth:1
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{ legend:{ position:'bottom' } },
+      animation:{ animateRotate:true, duration:800 }
+    }
+  });
+
+  const pie2 = new Chart($("#pie2"), {
+    type:'pie',
+    data:{
+      labels:['Pass','Fail','Partial'],
+      datasets:[{
+        data:[74,16,10],
+        backgroundColor:[
+          'rgba(53,201,122,.9)',
+          'rgba(255,107,107,.9)',
+          'rgba(108,140,255,.9)'
+        ],
+        borderColor:[
+          'rgba(53,201,122,1)',
+          'rgba(255,107,107,1)',
+          'rgba(108,140,255,1)'
+        ],
+        borderWidth:1
+      }]
+    },
+    options:{
+      responsive:true,
+      plugins:{ legend:{ position:'bottom' } },
+      animation:{ animateRotate:true, duration:800 }
+    }
+  });
+
+  // ---------- Heatmap interactivity ----------
+  const sampleRisks = {
+    "L3-I4": ["Third-party breach via exposed API", "Stale vendor SOC2 report", "Weak incident SLAs"],
+    "L2-I3": ["Exposed dev S3 bucket", "TLS misconfig (weak ciphers)"],
+    "L1-I5": ["Crown-jewel DB no immutable backup"],
+  };
+  document.querySelectorAll('.h-cell[data-cell]').forEach(cell=>{
+    cell.addEventListener('click', ()=>{
+      const key = cell.getAttribute('data-cell');
+      const list = sampleRisks[key] || ["No critical items. Maintain monitoring & control testing cadence."];
+      $("#heatmapInfo").innerHTML = `<b>Cell ${key}</b> — examples:<br>• ${list.join("<br>• ")}`;
+    });
+  });
+
+  // ---------- Theme toggle ----------
+  let light=false;
+  $("#toggleTheme").addEventListener('click', ()=>{
+    light = !light;
+    document.body.style.background = light
+      ? "#f5f7ff"
+      : 'radial-gradient(1200px 600px at 80% -10%, rgba(108,140,255,.18), transparent 60%), radial-gradient(900px 500px at 10% 110%, rgba(48,224,161,.16), transparent 60%), var(--bg)';
+    document.querySelectorAll('.card').forEach(c=>{
+      c.style.background = light
+        ? "linear-gradient(180deg, rgba(0,0,0,.02), rgba(0,0,0,.01))"
+        : "linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02))";
+      c.style.borderColor = light ? "rgba(0,0,0,.06)" : "rgba(255,255,255,.08)";
+    });
+  });
+
+  // ---------- Export snapshot (PNG via canvas combine) ----------
+  async function exportPNG(){
+    const canvases = [$("#donut"), $("#bar"), $("#radar"), $("#pie1"), $("#pie2")];
+    const w = 1400, h = 420;
+    const off = document.createElement('canvas');
+    off.width = w; off.height = h;
+    const ctx = off.getContext('2d');
+    ctx.fillStyle = '#101631'; ctx.fillRect(0,0,w,h);
+    ctx.fillStyle = '#e7eaf6'; ctx.font = '700 18px Inter';
+    ctx.fillText('GRC 360 degree — Snapshot', 16, 28);
+    let x=16;
+    for(const c of canvases){
+      const ratio = (h-70)/c.height;
+      const cw = Math.min(260, c.width * ratio);
+      ctx.drawImage(c, x, 50, cw, h-80);
+      x += cw + 16;
+      if(x > w-280) break;
+    }
+    const link = document.createElement('a');
+    link.download = `grc360-snapshot-${Date.now()}.png`;
+    link.href = off.toDataURL('image/png');
+    link.click();
+  }
+  $("#exportBtn").addEventListener('click', exportPNG);
+
+  // ---------- Simulate scan (button) ----------
+  $("#simulateBtn").addEventListener('click', updateKPIs);
+
+  // ---------- Lightweight auto-motion (periodic refresh on pies & radar) ----------
+  function wiggleRadar(){
+    const jitter = (v)=>clamp(v + (Math.random()*6 - 3), 45, 95);
+    radar.data.datasets.forEach(ds=>{
+      ds.data = ds.data.map(jitter);
+    });
+    radar.update();
+  }
+  function wigglePies(){
+    // small jitter, keep totals roughly stable
+    let d1 = pie1.data.datasets[0].data.map(v=>clamp(v + Math.round(Math.random()*4-2), 8, 40));
+    // normalize to ~100
+    const s1 = d1.reduce((a,b)=>a+b,0);
+    d1 = d1.map(v=>Math.round(v*100/s1));
+    pie1.data.datasets[0].data = d1;
+    pie1.update();
+
+    let pass = pie2.data.datasets[0].data[0] + Math.round(Math.random()*4 - 2);
+    let partial = pie2.data.datasets[0].data[2] + Math.round(Math.random()*3 - 1);
+    pass = clamp(pass, 60, 90);
+    partial = clamp(partial, 5, 20);
+    let fail = clamp(100 - pass - partial, 5, 30);
+    pie2.data.datasets[0].data = [pass, fail, partial];
+    pie2.update();
+  }
+
+  setInterval(wiggleRadar, 4500);
+  setInterval(wigglePies, 5200);
+
+  // Initial paint
+  updateKPIs();
+</script>
+</body>
+</html>
